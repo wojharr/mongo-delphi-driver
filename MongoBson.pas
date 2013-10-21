@@ -20,7 +20,12 @@
 unit MongoBson;
 
 interface
-  type TBson = class;
+
+uses
+  Windows, DB;
+
+type
+  TBson = class;
   TIntegerArray = array of Integer;
   TDoubleArray = array of Double;
   TBooleanArray = array of Boolean;
@@ -212,6 +217,12 @@ interface
     It is used to represent documents in MongoDB and also for network traffic.
     See http://www.mongodb.org/display/DOCS/BSON   }
   TBson = class(TObject)
+  private
+    fDS: TDataSet;
+
+    function GetFieldDefs: TFieldDefs;
+    procedure ConvertToString(var AString: string; i: TBsonIterator; depth: integer);
+  public
       { Pointer to externally managed data.  User code should not modify this.
         It is public only because the MongoDB and GridFS units must access it. }
       var handle : Pointer;
@@ -235,6 +246,9 @@ interface
       constructor Create(h : Pointer);
       { Destroy this TBson.  Releases the externally managed data. }
       destructor Destroy; override;
+      function AsString: string;
+
+      property FieldDefs: TFieldDefs read GetFieldDefs;
   end;
 
   { TBsonIterators are used to step through the fields of a TBson document. }
@@ -324,89 +338,128 @@ interface
     { Convert a byte to a 2-digit hex string }
     function ByteToHex(InByte : Byte) : string;
 
-    { Convert an Int64 to a Double.  Some loss of precision may occur. }
-    function Int64toDouble(i64 : int64) : double;
-      cdecl; external 'mongoc.dll' name 'bson_int64_to_double';
+{ Convert an Int64 to a Double.  Some loss of precision may occur. }
+type
+  TInt64toDouble = function(i64 : int64) : double; cdecl;
+var
+  Int64toDouble: TInt64toDouble;
 
 implementation
   uses SysUtils, Variants;
 
-  procedure set_bson_err_handler(err_handler : Pointer); cdecl; external 'mongoc.dll';
-
-  function bson_create() : Pointer;  cdecl; external 'mongoc.dll';
-  procedure bson_init(b : Pointer);  cdecl; external 'mongoc.dll';
-  procedure bson_destroy(b : Pointer); cdecl; external 'mongoc.dll';
-  procedure bson_dispose(b : Pointer); cdecl; external 'mongoc.dll';
-  procedure bson_copy(dest : Pointer; src : Pointer); cdecl; external 'mongoc.dll';
-  function bson_finish(b : Pointer) : Integer; cdecl; external 'mongoc.dll';
-  procedure bson_oid_gen(oid : Pointer); cdecl; external 'mongoc.dll';
-  procedure bson_oid_to_string(oid : Pointer; s : PAnsiChar); cdecl; external 'mongoc.dll';
-  procedure bson_oid_from_string(oid : Pointer; s : PAnsiChar); cdecl; external 'mongoc.dll';
-  function bson_append_string(b : Pointer; name : PAnsiChar; value : PAnsiChar) : Integer;
-    cdecl; external 'mongoc.dll';
-  function bson_append_code(b : Pointer; name : PAnsiChar; value : PAnsiChar) : Integer;
-    cdecl; external 'mongoc.dll';
-  function bson_append_symbol(b : Pointer; name : PAnsiChar; value : PAnsiChar) : Integer;
-    cdecl; external 'mongoc.dll';
-  function bson_append_int(b : Pointer; name : PAnsiChar; value : Integer) : Integer;
-    cdecl; external 'mongoc.dll';
-  function bson_append_long(b : Pointer; name : PAnsiChar; value : Int64) : Integer;
-    cdecl; external 'mongoc.dll';
-  function bson_append_double(b : Pointer; name : PAnsiChar; value : Double) : Integer;
-    cdecl; external 'mongoc.dll';
-  function bson_append_date(b : Pointer; name : PAnsiChar; value : Int64) : Integer;
-    cdecl; external 'mongoc.dll';
-  function bson_append_bool(b : Pointer; name : PAnsiChar; value : Boolean) : Integer;
-    cdecl; external 'mongoc.dll';
-  function bson_append_null(b : Pointer; name : PAnsiChar) : Integer;
-    cdecl; external 'mongoc.dll';
-  function bson_append_undefined(b : Pointer; name : PAnsiChar) : Integer;
-    cdecl; external 'mongoc.dll';
-  function bson_append_start_object(b : Pointer; name : PAnsiChar) : Integer;
-    cdecl; external 'mongoc.dll';
-  function bson_append_start_array(b : Pointer; name : PAnsiChar) : Integer;
-    cdecl; external 'mongoc.dll';
-  function bson_append_finish_object(b : Pointer) : Integer; cdecl; external 'mongoc.dll';
-  function bson_append_oid(b : Pointer; name : PAnsiChar; oid : Pointer) : Integer; cdecl; external 'mongoc.dll';
-  function bson_append_code_w_scope(b : Pointer; name : PAnsiChar; code : PAnsiChar; scope : Pointer) : Integer;
-    cdecl; external 'mongoc.dll';
-  function bson_append_regex(b : Pointer; name : PAnsiChar; pattern : PAnsiChar; options : PAnsiChar) : Integer;
-    cdecl; external 'mongoc.dll';
-  function bson_append_timestamp2(b : Pointer; name : PAnsiChar; time : Integer; increment : Integer) : Integer;
-    cdecl; external 'mongoc.dll';
-  function bson_append_binary(b : Pointer; name : PAnsiChar; kind : Byte; data : Pointer; len : Integer) : Integer;
-    cdecl; external 'mongoc.dll';
-  function bson_append_bson(b : Pointer; name : PAnsiChar; value : Pointer) : Integer;
-    cdecl; external 'mongoc.dll';
-  function bson_buffer_size(b : Pointer) : Integer; cdecl; external 'mongoc.dll';
-  function bson_size(b : Pointer) : Integer; cdecl; external 'mongoc.dll';
-  function bson_iterator_create() : Pointer; cdecl; external 'mongoc.dll';
-  procedure bson_iterator_dispose(i : Pointer); cdecl; external 'mongoc.dll';
-  procedure bson_iterator_init(i : Pointer; b : Pointer); cdecl; external 'mongoc.dll';
-  function bson_find(i : Pointer; b : Pointer; name : PAnsiChar) : TBsonType;
-    cdecl; external 'mongoc.dll';
-  function bson_iterator_type(i : Pointer) : TBsonType; cdecl; external 'mongoc.dll';
-  function bson_iterator_next(i : Pointer) : TBsonType; cdecl; external 'mongoc.dll';
-  function bson_iterator_key(i : Pointer) : PAnsiChar; cdecl; external 'mongoc.dll';
-  function bson_iterator_double(i : Pointer) : Double; cdecl; external 'mongoc.dll';
-  function bson_iterator_long(i : Pointer) : Int64; cdecl; external 'mongoc.dll';
-  function bson_iterator_int(i : Pointer) : Integer; cdecl; external 'mongoc.dll';
-  function bson_iterator_bool(i : Pointer) : Boolean; cdecl; external 'mongoc.dll';
-  function bson_iterator_string(i : Pointer) : PAnsiChar; cdecl; external 'mongoc.dll';
-  function bson_iterator_date(i : Pointer) : Int64; cdecl; external 'mongoc.dll';
-  procedure bson_iterator_subiterator(i : Pointer; sub : Pointer);
-    cdecl; external 'mongoc.dll';
-  function bson_iterator_oid(i : Pointer) : Pointer; cdecl; external 'mongoc.dll';
-  function bson_iterator_code(i : Pointer) : PAnsiChar; cdecl; external 'mongoc.dll';
-  procedure bson_iterator_code_scope(i : Pointer; b : Pointer); cdecl; external 'mongoc.dll';
-  function bson_iterator_regex(i : Pointer) : PAnsiChar; cdecl; external 'mongoc.dll';
-  function bson_iterator_regex_opts(i : Pointer) : PAnsiChar; cdecl; external 'mongoc.dll';
-  function bson_iterator_timestamp_time(i : Pointer) : Integer; cdecl; external 'mongoc.dll';
-  function bson_iterator_timestamp_increment(i : Pointer) : Integer; cdecl; external 'mongoc.dll';
-  function bson_iterator_bin_len(i : Pointer) : Integer;  cdecl; external 'mongoc.dll';
-  function bson_iterator_bin_type(i : Pointer) : Byte;  cdecl; external 'mongoc.dll';
-  function bson_iterator_bin_data(i : Pointer) : Pointer;  cdecl; external 'mongoc.dll';
-
+type
+  Tset_bson_err_handler = procedure(err_handler : Pointer); cdecl;
+  Tbson_create = function: Pointer; cdecl;
+  Tbson_init = procedure(b : Pointer);  cdecl;
+  Tbson_destroy = procedure(b : Pointer); cdecl;
+  Tbson_dispose = procedure(b : Pointer); cdecl;
+  Tbson_copy = procedure(dest : Pointer; src : Pointer); cdecl;
+  Tbson_finish = function(b : Pointer) : Integer; cdecl;
+  Tbson_oid_gen = procedure(oid : Pointer); cdecl;
+  Tbson_oid_to_string = procedure(oid : Pointer; s : PAnsiChar); cdecl;
+  Tbson_oid_from_string = procedure(oid : Pointer; s : PAnsiChar); cdecl;
+  Tbson_append_string = function(b : Pointer; name : PAnsiChar; value : PAnsiChar) : Integer; cdecl;
+  Tbson_append_code = function(b : Pointer; name : PAnsiChar; value : PAnsiChar) : Integer; cdecl;
+  Tbson_append_symbol = function(b : Pointer; name : PAnsiChar; value : PAnsiChar) : Integer; cdecl;
+  Tbson_append_int = function(b : Pointer; name : PAnsiChar; value : Integer) : Integer; cdecl;
+  Tbson_append_long = function(b : Pointer; name : PAnsiChar; value : Int64) : Integer; cdecl;
+  Tbson_append_double = function(b : Pointer; name : PAnsiChar; value : Double) : Integer; cdecl;
+  Tbson_append_date = function(b : Pointer; name : PAnsiChar; value : Int64) : Integer; cdecl;
+  Tbson_append_bool = function(b : Pointer; name : PAnsiChar; value : Boolean) : Integer; cdecl;
+  Tbson_append_null = function(b : Pointer; name : PAnsiChar) : Integer; cdecl;
+  Tbson_append_undefined = function(b : Pointer; name : PAnsiChar) : Integer; cdecl;
+  Tbson_append_start_object = function(b : Pointer; name : PAnsiChar) : Integer; cdecl;
+  Tbson_append_start_array = function(b : Pointer; name : PAnsiChar) : Integer; cdecl;
+  Tbson_append_finish_object = function(b : Pointer) : Integer; cdecl;
+  Tbson_append_oid = function(b : Pointer; name : PAnsiChar; oid : Pointer) : Integer; cdecl;
+  Tbson_append_code_w_scope = function(b : Pointer; name : PAnsiChar; code : PAnsiChar; scope : Pointer) : Integer; cdecl;
+  Tbson_append_regex = function(b : Pointer; name : PAnsiChar; pattern : PAnsiChar; options : PAnsiChar) : Integer; cdecl;
+  Tbson_append_timestamp2 = function(b : Pointer; name : PAnsiChar; time : Integer; increment : Integer) : Integer; cdecl;
+  Tbson_append_binary = function(b : Pointer; name : PAnsiChar; kind : Byte; data : Pointer; len : Integer) : Integer; cdecl;
+  Tbson_append_bson = function(b : Pointer; name : PAnsiChar; value : Pointer) : Integer; cdecl;
+  Tbson_buffer_size = function(b : Pointer) : Integer; cdecl;
+  Tbson_size = function(b : Pointer) : Integer; cdecl;
+  Tbson_iterator_create = function: Pointer; cdecl;
+  Tbson_iterator_dispose = procedure(i : Pointer); cdecl;
+  Tbson_iterator_init = procedure(i : Pointer; b : Pointer); cdecl;
+  Tbson_find = function(i : Pointer; b : Pointer; name : PAnsiChar) : TBsonType; cdecl;
+  Tbson_iterator_type = function(i : Pointer) : TBsonType; cdecl;
+  Tbson_iterator_next = function(i : Pointer) : TBsonType; cdecl;
+  Tbson_iterator_key = function(i : Pointer) : PAnsiChar; cdecl;
+  Tbson_iterator_double = function(i : Pointer) : Double; cdecl;
+  Tbson_iterator_long = function(i : Pointer) : Int64; cdecl;
+  Tbson_iterator_int = function(i : Pointer) : Integer; cdecl;
+  Tbson_iterator_bool = function(i : Pointer) : Boolean; cdecl;
+  Tbson_iterator_string = function(i : Pointer) : PAnsiChar; cdecl;
+  Tbson_iterator_date = function(i : Pointer) : Int64; cdecl;
+  Tbson_iterator_subiterator = procedure(i : Pointer; sub : Pointer); cdecl;
+  Tbson_iterator_oid = function(i : Pointer) : Pointer; cdecl;
+  Tbson_iterator_code = function(i : Pointer) : PAnsiChar; cdecl;
+  Tbson_iterator_code_scope = procedure(i : Pointer; b : Pointer); cdecl;
+  Tbson_iterator_regex = function(i : Pointer) : PAnsiChar; cdecl;
+  Tbson_iterator_regex_opts = function(i : Pointer) : PAnsiChar; cdecl;
+  Tbson_iterator_timestamp_time = function(i : Pointer) : Integer; cdecl;
+  Tbson_iterator_timestamp_increment = function(i : Pointer) : Integer; cdecl;
+  Tbson_iterator_bin_len = function(i : Pointer) : Integer; cdecl;
+  Tbson_iterator_bin_type = function(i : Pointer) : Byte; cdecl;
+  Tbson_iterator_bin_data = function(i : Pointer) : Pointer; cdecl;
+var
+  mongoLibraryHandle: THandle;
+  set_bson_err_handler: Tset_bson_err_handler;
+  bson_create: Tbson_create;
+  bson_init: Tbson_init;
+  bson_destroy: Tbson_destroy;
+  bson_dispose: Tbson_dispose;
+  bson_copy: Tbson_copy;
+  bson_finish: Tbson_finish;
+  bson_oid_gen: Tbson_oid_gen;
+  bson_oid_to_string: Tbson_oid_to_string;
+  bson_oid_from_string: Tbson_oid_from_string;
+  bson_append_string: Tbson_append_string;
+  bson_append_code: Tbson_append_code;
+  bson_append_symbol: Tbson_append_symbol;
+  bson_append_int: Tbson_append_int;
+  bson_append_long: Tbson_append_long;
+  bson_append_double: Tbson_append_double;
+  bson_append_date: Tbson_append_date;
+  bson_append_bool: Tbson_append_bool;
+  bson_append_null: Tbson_append_null;
+  bson_append_undefined: Tbson_append_undefined;
+  bson_append_start_object: Tbson_append_start_object;
+  bson_append_start_array: Tbson_append_start_array;
+  bson_append_finish_object: Tbson_append_finish_object;
+  bson_append_oid: Tbson_append_oid;
+  bson_append_code_w_scope: Tbson_append_code_w_scope;
+  bson_append_regex: Tbson_append_regex;
+  bson_append_timestamp2: Tbson_append_timestamp2;
+  bson_append_binary: Tbson_append_binary;
+  bson_append_bson: Tbson_append_bson;
+  bson_buffer_size: Tbson_buffer_size;
+  bson_size: Tbson_size;
+  bson_iterator_create: Tbson_iterator_create;
+  bson_iterator_dispose: Tbson_iterator_dispose;
+  bson_iterator_init: Tbson_iterator_init;
+  bson_find: Tbson_find;
+  bson_iterator_type: Tbson_iterator_type;
+  bson_iterator_next: Tbson_iterator_next;
+  bson_iterator_key: Tbson_iterator_key;
+  bson_iterator_double: Tbson_iterator_double;
+  bson_iterator_long: Tbson_iterator_long;
+  bson_iterator_int: Tbson_iterator_int;
+  bson_iterator_bool: Tbson_iterator_bool;
+  bson_iterator_string: Tbson_iterator_string;
+  bson_iterator_date: Tbson_iterator_date;
+  bson_iterator_subiterator: Tbson_iterator_subiterator;
+  bson_iterator_oid: Tbson_iterator_oid;
+  bson_iterator_code: Tbson_iterator_code;
+  bson_iterator_code_scope: Tbson_iterator_code_scope;
+  bson_iterator_regex: Tbson_iterator_regex;
+  bson_iterator_regex_opts: Tbson_iterator_regex_opts;
+  bson_iterator_timestamp_time: Tbson_iterator_timestamp_time;
+  bson_iterator_timestamp_increment: Tbson_iterator_timestamp_increment;
+  bson_iterator_bin_len: Tbson_iterator_bin_len;
+  bson_iterator_bin_type: Tbson_iterator_bin_type;
+  bson_iterator_bin_data: Tbson_iterator_bin_data;
 
   constructor TBsonOID.Create();
   begin
@@ -623,10 +676,14 @@ implementation
       i : TBsonIterator;
   begin
     i := find(name);
-    if i = nil then
-      Result := Null
-    else
-      Result := i.value;
+    try
+      if i = nil then
+        Result := Null
+      else
+        Result := i.value;
+    finally
+      i.Free;
+    end;
   end;
 
   function TBson.iterator() : TBsonIterator;
@@ -742,6 +799,7 @@ implementation
   function TBsonBuffer.append(name : string; value : OleVariant) : Boolean;
     var
       d : double;
+      i64 : Int64;
   begin
     case VarType(value) of
       varNull: Result := appendNull(name);
@@ -751,7 +809,10 @@ implementation
         Result := append(name, d);
       end;
       varDate: Result := append(name, TDateTime(value));
-      varInt64: Result := append(name, Int64(value));
+      varInt64: begin
+        i64 := value;
+        Result := append(name, i64);
+      end;
       varBoolean: Result := append(name, Boolean(value));
       varOleStr: Result := append(name, PAnsiChar(System.UTF8Encode(value)));
     else
@@ -893,13 +954,88 @@ implementation
       Result := nil;
   end;
 
+function TBson.AsString: string;
+begin
+  Result := '';
+  ConvertToString(Result, iterator, 0);
+end;
+
+procedure TBson.ConvertToString(var AString: string; i: TBsonIterator; depth: integer);
+var
+  t : TBsonType;
+  j,k : Integer;
+  cws : TBsonCodeWScope;
+  regex : TBsonRegex;
+  ts : TBsonTimestamp;
+  bin : TBsonBinary;
+  p : PByte;
+begin
+  while i.next() do
+  begin
+    t := i.kind();
+    if t = bsonEOO then
+      break;
+    for j:= 1 To depth do
+      AString := AString + '    ';
+    AString := AString + i.key + ' (' + IntToStr(Ord(t)) + ') : ';
+    case t of
+        bsonDOUBLE,
+        bsonSTRING, bsonSYMBOL, bsonCODE,
+        bsonBOOL, bsonDATE, bsonINT, bsonLONG :
+            AString := AString + VarToStr(i.value);
+        bsonUNDEFINED :
+            AString := AString + 'UNDEFINED';
+        bsonNULL :
+            AString := AString + 'NULL';
+        bsonOBJECT, bsonARRAY : begin
+            AString := AString + #13#10;
+            ConvertToString(AString, i.subiterator, depth+1);
+        end;
+        bsonOID : AString := AString + i.getOID().AsString();
+        bsonCODEWSCOPE : begin
+            AString := AString + 'CODEWSCOPE ';
+            cws := i.getCodeWScope();
+            AString := AString + cws.code + #13#10;
+            ConvertToString(AString, cws.scope.iterator, depth+1);
+        end;
+        bsonREGEX: begin
+            regex := i.getRegex();
+            AString := AString + regex.pattern + ', ' + regex.options;
+        end;
+        bsonTIMESTAMP: begin
+            ts := i.getTimestamp();
+            AString := AString + DateTimeToStr(ts.time) + ' (' + IntToStr(ts.increment) + ')';
+        end;
+        bsonBINDATA: begin
+            bin := i.getBinary();
+            AString := AString + 'BINARY (' + IntToStr(bin.kind) + ')';
+            p := bin.data;
+            for j := 0 to bin.len-1 do begin
+              if j and 15 = 0 then begin
+                AString := AString + #13#10;
+                for k := 1 To depth+1 do
+                  AString := AString + '    ';
+              end;
+              AString := AString + ByteToHex(p^) + ' ';
+              Inc(p);
+            end;
+        end;
+    else
+      AString := AString + 'UNKNOWN';
+    end;
+    AString := AString + #13#10;
+  end;
+end;
+
   constructor TBson.Create(h : Pointer);
   begin
     handle := h;
+    fDS := TDataSet.Create(nil);
   end;
 
   destructor TBson.Destroy();
     begin
+      fDS.Free;
       bson_destroy(handle);
       bson_dispose(handle);
       inherited Destroy();
@@ -919,6 +1055,42 @@ implementation
       i := nil;
     Result := i;
   end;
+
+function TBson.GetFieldDefs: TFieldDefs;
+
+  procedure AddFieldDefs(i: TBsonIterator; depth: integer);
+  begin
+    while i.next do
+    begin
+      case i.kind of
+        bsonDOUBLE: fDS.FieldDefs.Add(i.key, ftFloat);
+        bsonSTRING, bsonSYMBOL, bsonCODE: fDS.FieldDefs.Add(i.key, ftString, 1000);
+        bsonBOOL: fDS.FieldDefs.Add(i.key, ftBoolean);
+        bsonDATE: fDS.FieldDefs.Add(i.key, ftDateTime);
+        bsonINT: fDS.FieldDefs.Add(i.key, ftInteger);
+        bsonLONG: fDS.FieldDefs.Add(i.key, ftLargeint);
+        bsonOBJECT, bsonARRAY: AddFieldDefs(i.subiterator, depth+1);
+        bsonOID: fDS.FieldDefs.Add(i.key, ftString, 12);
+        bsonCODEWSCOPE: AddFieldDefs(i.getCodeWScope.scope.iterator, depth+1);
+        bsonREGEX: fDS.FieldDefs.Add(i.key, ftString, 1000);
+        bsonTIMESTAMP: fDS.FieldDefs.Add(i.key, ftTimeStamp);
+        bsonBINDATA: fDS.FieldDefs.Add(i.key, ftBlob);
+      end;
+    end;
+  end;
+
+var
+  localIterator: TBsonIterator;
+begin
+  fDS.FieldDefs.Clear;
+  localIterator := iterator;
+  try
+    AddFieldDefs(localIterator, 0);
+  finally
+    localIterator.Free;
+  end;
+  Result := fDS.FieldDefs;
+end;
 
   procedure _display(i : TBsonIterator; depth : Integer);
   var
@@ -1112,9 +1284,92 @@ implementation
     Raise Exception.Create(string(msg));
   end;
 
-  initialization
-    bsonEmpty := BSON([]);
-    set_bson_err_handler(Addr(err_handler));
+procedure LoadMongoLibrary;
+begin
+  mongoLibraryHandle := 0;
 
+  if FileExists('mongoc.dll') then
+  begin
+    mongoLibraryHandle := LoadLibrary('mongoc.dll');
+
+    if mongoLibraryHandle > 0 then
+    begin
+      @set_bson_err_handler := GetProcAddress(mongoLibraryHandle, 'set_bson_err_handler');
+      @bson_create := GetProcAddress(mongoLibraryHandle, 'bson_create');
+      @bson_init := GetProcAddress(mongoLibraryHandle, 'bson_init');
+      @bson_destroy := GetProcAddress(mongoLibraryHandle, 'bson_destroy');
+      @bson_dispose := GetProcAddress(mongoLibraryHandle, 'bson_dispose');
+      @bson_copy := GetProcAddress(mongoLibraryHandle, 'bson_copy');
+      @bson_finish := GetProcAddress(mongoLibraryHandle, 'bson_finish');
+      @bson_oid_gen := GetProcAddress(mongoLibraryHandle, 'bson_oid_gen');
+      @bson_oid_to_string := GetProcAddress(mongoLibraryHandle, 'bson_oid_to_string');
+      @bson_oid_from_string := GetProcAddress(mongoLibraryHandle, 'bson_oid_from_string');
+      @bson_append_string := GetProcAddress(mongoLibraryHandle, 'bson_append_string');
+      @bson_append_code := GetProcAddress(mongoLibraryHandle, 'bson_append_code');
+      @bson_append_symbol := GetProcAddress(mongoLibraryHandle, 'bson_append_symbol');
+      @bson_append_int := GetProcAddress(mongoLibraryHandle, 'bson_append_int');
+      @bson_append_long := GetProcAddress(mongoLibraryHandle, 'bson_append_long');
+      @bson_append_double := GetProcAddress(mongoLibraryHandle, 'bson_append_double');
+      @bson_append_date := GetProcAddress(mongoLibraryHandle, 'bson_append_date');
+      @bson_append_bool := GetProcAddress(mongoLibraryHandle, 'bson_append_bool');
+      @bson_append_null := GetProcAddress(mongoLibraryHandle, 'bson_append_null');
+      @bson_append_undefined := GetProcAddress(mongoLibraryHandle, 'bson_append_undefined');
+      @bson_append_start_object := GetProcAddress(mongoLibraryHandle, 'bson_append_start_object');
+      @bson_append_start_array := GetProcAddress(mongoLibraryHandle, 'bson_append_start_array');
+      @bson_append_finish_object := GetProcAddress(mongoLibraryHandle, 'bson_append_finish_object');
+      @bson_append_oid := GetProcAddress(mongoLibraryHandle, 'bson_append_oid');
+      @bson_append_code_w_scope := GetProcAddress(mongoLibraryHandle, 'bson_append_code_w_scope');
+      @bson_append_regex := GetProcAddress(mongoLibraryHandle, 'bson_append_regex');
+      @bson_append_timestamp2 := GetProcAddress(mongoLibraryHandle, 'bson_append_timestamp2');
+      @bson_append_binary := GetProcAddress(mongoLibraryHandle, 'bson_append_binary');
+      @bson_append_bson := GetProcAddress(mongoLibraryHandle, 'bson_append_bson');
+      @bson_buffer_size := GetProcAddress(mongoLibraryHandle, 'bson_buffer_size');
+      @bson_size := GetProcAddress(mongoLibraryHandle, 'bson_size');
+      @bson_iterator_create := GetProcAddress(mongoLibraryHandle, 'bson_iterator_create');
+      @bson_iterator_dispose := GetProcAddress(mongoLibraryHandle, 'bson_iterator_dispose');
+      @bson_iterator_init := GetProcAddress(mongoLibraryHandle, 'bson_iterator_init');
+      @bson_find := GetProcAddress(mongoLibraryHandle, 'bson_find');
+      @bson_iterator_type := GetProcAddress(mongoLibraryHandle, 'bson_iterator_type');
+      @bson_iterator_next := GetProcAddress(mongoLibraryHandle, 'bson_iterator_next');
+      @bson_iterator_key := GetProcAddress(mongoLibraryHandle, 'bson_iterator_key');
+      @bson_iterator_double := GetProcAddress(mongoLibraryHandle, 'bson_iterator_double');
+      @bson_iterator_long := GetProcAddress(mongoLibraryHandle, 'bson_iterator_long');
+      @bson_iterator_int := GetProcAddress(mongoLibraryHandle, 'bson_iterator_int');
+      @bson_iterator_bool := GetProcAddress(mongoLibraryHandle, 'bson_iterator_bool');
+      @bson_iterator_string := GetProcAddress(mongoLibraryHandle, 'bson_iterator_string');
+      @bson_iterator_date := GetProcAddress(mongoLibraryHandle, 'bson_iterator_date');
+      @bson_iterator_subiterator := GetProcAddress(mongoLibraryHandle, 'bson_iterator_subiterator');
+      @bson_iterator_oid := GetProcAddress(mongoLibraryHandle, 'bson_iterator_oid');
+      @bson_iterator_code := GetProcAddress(mongoLibraryHandle, 'bson_iterator_code');
+      @bson_iterator_code_scope := GetProcAddress(mongoLibraryHandle, 'bson_iterator_code_scope');
+      @bson_iterator_regex := GetProcAddress(mongoLibraryHandle, 'bson_iterator_regex');
+      @bson_iterator_regex_opts := GetProcAddress(mongoLibraryHandle, 'bson_iterator_regex_opts');
+      @bson_iterator_timestamp_time := GetProcAddress(mongoLibraryHandle, 'bson_iterator_timestamp_time');
+      @bson_iterator_timestamp_increment := GetProcAddress(mongoLibraryHandle, 'bson_iterator_timestamp_increment');
+      @bson_iterator_bin_len := GetProcAddress(mongoLibraryHandle, 'bson_iterator_bin_len');
+      @bson_iterator_bin_type := GetProcAddress(mongoLibraryHandle, 'bson_iterator_bin_type');
+      @bson_iterator_bin_data := GetProcAddress(mongoLibraryHandle, 'bson_iterator_bin_data');
+
+      @Int64toDouble := GetProcAddress(mongoLibraryHandle, 'bson_int64_to_double');
+
+      bsonEmpty := BSON([]);
+      set_bson_err_handler(Addr(err_handler));
+    end;
+  end;
+end;
+
+procedure UnloadMongoLibrary;
+begin
+  if mongoLibraryHandle > 0 then
+  begin
+    FreeLibrary(mongoLibraryHandle);
+  end;
+end;
+
+initialization
+  LoadMongoLibrary;
+
+finalization
+  UnloadMongoLibrary;
 end.
 

@@ -19,7 +19,7 @@ unit MongoDB;
 
 interface
   Uses
-     MongoBson;
+    MongoBson, Windows;
 
   const
     updateUpsert    = 1;
@@ -350,73 +350,106 @@ interface
       destructor Destroy(); override;
     end;
 
+function MongoLibraryLoaded: boolean;
+
 implementation
   Uses
     SysUtils;
 
-  function mongo_env_sock_init() : Integer;  cdecl; external 'mongoc.dll';
-  function mongo_create() : Pointer; cdecl; external 'mongoc.dll';
-  procedure mongo_dispose(c : Pointer); cdecl; external 'mongoc.dll';
-  function mongo_client(c : Pointer; host : PAnsiChar; port : Integer) : Integer;
-    cdecl; external 'mongoc.dll';
-  procedure mongo_destroy(c : Pointer); cdecl; external 'mongoc.dll';
-  procedure mongo_replica_set_init(c : Pointer; name : PAnsiChar); cdecl; external 'mongoc.dll';
-  procedure mongo_replica_set_add_seed(c : Pointer; host : PAnsiChar; port : Integer);
-    cdecl; external 'mongoc.dll';
-  function mongo_replica_set_client(c : Pointer) : Integer; cdecl; external 'mongoc.dll';
-  function mongo_is_connected(c : Pointer) : Boolean;  cdecl; external 'mongoc.dll';
-  function mongo_get_err(c : Pointer) : Integer; cdecl; external 'mongoc.dll';
-  function mongo_set_op_timeout(c : Pointer; millis : Integer) : Integer;
-    cdecl; external 'mongoc.dll';
-  function mongo_get_op_timeout(c : Pointer) : Integer; cdecl; external 'mongoc.dll';
-  function mongo_get_primary(c : Pointer) : PAnsiChar; cdecl; external 'mongoc.dll';
-  function mongo_check_connection(c : Pointer) : Integer; cdecl; external 'mongoc.dll';
-  procedure mongo_disconnect(c : Pointer); cdecl; external 'mongoc.dll';
-  function mongo_reconnect(c : Pointer) : Integer; cdecl; external 'mongoc.dll';
-  function mongo_cmd_ismaster(c : Pointer; b : Pointer) : Boolean;
-    cdecl; external 'mongoc.dll';
-  function mongo_get_socket(c : Pointer) : Integer; cdecl; external 'mongoc.dll';
-  function mongo_get_host_count(c : Pointer) : Integer; cdecl; external 'mongoc.dll';
-  function mongo_get_host(c : Pointer; i : Integer) : PAnsiChar; cdecl; external 'mongoc.dll';
-  function mongo_insert(c : Pointer; ns : PAnsiChar; b : Pointer; wc : Pointer) : Integer;
-    cdecl; external 'mongoc.dll';
-  function mongo_insert_batch(c : Pointer; ns : PAnsiChar; bsons : Pointer; count : Integer; wc : Pointer; flags : Integer) : Integer;
-    cdecl; external 'mongoc.dll';
-  function mongo_update(c : Pointer; ns : PAnsiChar; cond : Pointer; op : Pointer; flags : Integer; wc : Pointer) : Integer;
-    cdecl; external 'mongoc.dll';
-  function mongo_remove(c : Pointer; ns : PAnsiChar; criteria : Pointer; wc : Pointer) : Integer;
-    cdecl; external 'mongoc.dll';
-  function mongo_find_one(c : Pointer; ns : PAnsiChar; query : Pointer; fields : Pointer; result : Pointer) : Integer;
-    cdecl; external 'mongoc.dll';
-  function bson_create() : Pointer;  external 'mongoc.dll';
-  procedure bson_dispose(b : Pointer); cdecl; external 'mongoc.dll';
-  procedure bson_copy(dest : Pointer; src : Pointer); cdecl; external 'mongoc.dll';
-  function mongo_cursor_create() : Pointer;  cdecl; external 'mongoc.dll';
-  procedure mongo_cursor_dispose(cursor : Pointer); cdecl; external 'mongoc.dll';
-  procedure mongo_cursor_destroy(cursor : Pointer); cdecl; external 'mongoc.dll';
-  function mongo_find(c : Pointer; ns : PAnsiChar; query : Pointer; fields : Pointer;
-                      limit, skip, options : Integer) : Pointer; cdecl; external 'mongoc.dll';
-  function mongo_cursor_next(cursor : Pointer) : Integer; cdecl; external 'mongoc.dll';
-  function mongo_cursor_bson(cursor : Pointer) : Pointer; cdecl; external 'mongoc.dll';
-  function mongo_cmd_drop_collection(c : Pointer; db : PAnsiChar; collection : PAnsiChar; result : Pointer) : Integer;
-    cdecl; external 'mongoc.dll';
-  function mongo_cmd_drop_db(c : Pointer; db : PAnsiChar) : Integer; cdecl; external 'mongoc.dll';
-  function mongo_count(c : Pointer; db : PAnsiChar; collection : PAnsiChar; query : Pointer) : Double;
-    cdecl; external 'mongoc.dll';
-  function mongo_create_index(c : Pointer; ns : PAnsiChar; key : Pointer; options : Integer; res : Pointer) : Integer;
-    cdecl; external 'mongoc.dll';
-  function mongo_cmd_add_user(c : Pointer; db : PAnsiChar; name : PAnsiChar; password : PAnsiChar) : Integer;
-    cdecl; external 'mongoc.dll';
-  function mongo_cmd_authenticate(c : Pointer; db : PAnsiChar; name : PAnsiChar; password : PAnsiChar) : Integer;
-    cdecl; external 'mongoc.dll';
-  function mongo_run_command(c : Pointer; db : PAnsiChar; command : Pointer; res: Pointer) : Integer;
-    cdecl; external 'mongoc.dll';
-  function mongo_cmd_get_last_error(c : Pointer; db : PAnsiChar; res: Pointer) : Integer;
-    cdecl; external 'mongoc.dll';
-  function mongo_cmd_get_prev_error(c : Pointer; db : PAnsiChar; res: Pointer) : Integer;
-    cdecl; external 'mongoc.dll';
-  function mongo_get_server_err(c : Pointer) : Integer; cdecl; external 'mongoc.dll';
-  function mongo_get_server_err_string(c : Pointer) : PAnsiChar; cdecl; external 'mongoc.dll';
+type
+  Tmongo_env_sock_init = function: Integer; cdecl;
+  Tmongo_create = function: Pointer; cdecl;
+  Tmongo_dispose = procedure(c : Pointer); cdecl;
+  Tmongo_client = function(c : Pointer; host : PAnsiChar; port : Integer) : Integer; cdecl;
+  Tmongo_destroy = procedure(c : Pointer); cdecl;
+  Tmongo_replica_set_init = procedure(c : Pointer; name : PAnsiChar); cdecl;
+  Tmongo_replica_set_add_seed = procedure(c : Pointer; host : PAnsiChar; port : Integer); cdecl;
+  Tmongo_replica_set_client = function(c : Pointer) : Integer; cdecl;
+  Tmongo_is_connected = function(c : Pointer) : Boolean;  cdecl;
+  Tmongo_get_err = function(c : Pointer) : Integer; cdecl;
+  Tmongo_set_op_timeout = function(c : Pointer; millis : Integer) : Integer; cdecl;
+  Tmongo_get_op_timeout = function(c : Pointer) : Integer; cdecl;
+  Tmongo_get_primary = function(c : Pointer) : PAnsiChar; cdecl;
+  Tmongo_check_connection = function(c : Pointer) : Integer; cdecl;
+  Tmongo_disconnect = procedure(c : Pointer); cdecl;
+  Tmongo_reconnect = function(c : Pointer) : Integer; cdecl;
+  Tmongo_cmd_ismaster = function(c : Pointer; b : Pointer) : Boolean; cdecl;
+  Tmongo_get_socket = function(c : Pointer) : Integer; cdecl;
+  Tmongo_get_host_count = function(c : Pointer) : Integer; cdecl;
+  Tmongo_get_host = function(c : Pointer; i : Integer) : PAnsiChar; cdecl;
+  Tmongo_insert = function(c : Pointer; ns : PAnsiChar; b : Pointer; wc : Pointer) : Integer; cdecl;
+  Tmongo_insert_batch = function(c : Pointer; ns : PAnsiChar; bsons : Pointer; count : Integer; wc : Pointer; flags : Integer) : Integer; cdecl;
+  Tmongo_update = function(c : Pointer; ns : PAnsiChar; cond : Pointer; op : Pointer; flags : Integer; wc : Pointer) : Integer; cdecl;
+  Tmongo_remove = function(c : Pointer; ns : PAnsiChar; criteria : Pointer; wc : Pointer) : Integer; cdecl;
+  Tmongo_find_one = function(c : Pointer; ns : PAnsiChar; query : Pointer; fields : Pointer; result : Pointer) : Integer; cdecl;
+  Tbson_create = function: Pointer; cdecl;
+  Tbson_dispose = procedure(b : Pointer); cdecl;
+  Tbson_copy = procedure(dest : Pointer; src : Pointer); cdecl;
+  Tmongo_cursor_create = function: Pointer;  cdecl;
+  Tmongo_cursor_dispose = procedure(cursor : Pointer); cdecl;
+  Tmongo_cursor_destroy = procedure(cursor : Pointer); cdecl;
+  Tmongo_find = function(c : Pointer; ns : PAnsiChar; query : Pointer; fields : Pointer; limit, skip, options : Integer) : Pointer; cdecl;
+  Tmongo_cursor_next = function(cursor : Pointer) : Integer; cdecl;
+  Tmongo_cursor_bson = function(cursor : Pointer) : Pointer; cdecl;
+  Tmongo_cmd_drop_collection = function(c : Pointer; db : PAnsiChar; collection : PAnsiChar; result : Pointer) : Integer; cdecl;
+  Tmongo_cmd_drop_db = function(c : Pointer; db : PAnsiChar) : Integer; cdecl;
+  Tmongo_count = function(c : Pointer; db : PAnsiChar; collection : PAnsiChar; query : Pointer) : Double; cdecl;
+  Tmongo_create_index = function(c : Pointer; ns : PAnsiChar; key : Pointer; options : Integer; res : Pointer) : Integer; cdecl;
+  Tmongo_cmd_add_user = function(c : Pointer; db : PAnsiChar; name : PAnsiChar; password : PAnsiChar) : Integer; cdecl;
+  Tmongo_cmd_authenticate = function(c : Pointer; db : PAnsiChar; name : PAnsiChar; password : PAnsiChar) : Integer; cdecl;
+  Tmongo_run_command = function(c : Pointer; db : PAnsiChar; command : Pointer; res: Pointer) : Integer; cdecl;
+  Tmongo_cmd_get_last_error = function(c : Pointer; db : PAnsiChar; res: Pointer) : Integer; cdecl;
+  Tmongo_cmd_get_prev_error = function(c : Pointer; db : PAnsiChar; res: Pointer) : Integer; cdecl;
+  Tmongo_get_server_err = function(c : Pointer) : Integer; cdecl;
+  Tmongo_get_server_err_string = function(c : Pointer) : PAnsiChar; cdecl;
+
+var
+  mongoLibraryHandle: THandle;
+  mongo_env_sock_init: Tmongo_env_sock_init;
+  mongo_create: Tmongo_create;
+  mongo_dispose: Tmongo_dispose;
+  mongo_client: Tmongo_client;
+  mongo_destroy: Tmongo_destroy;
+  mongo_replica_set_init: Tmongo_replica_set_init;
+  mongo_replica_set_add_seed: Tmongo_replica_set_add_seed;
+  mongo_replica_set_client: Tmongo_replica_set_client;
+  mongo_is_connected: Tmongo_is_connected;
+  mongo_get_err: Tmongo_get_err;
+  mongo_set_op_timeout: Tmongo_set_op_timeout;
+  mongo_get_op_timeout: Tmongo_get_op_timeout;
+  mongo_get_primary: Tmongo_get_primary;
+  mongo_check_connection: Tmongo_check_connection;
+  mongo_disconnect: Tmongo_disconnect;
+  mongo_reconnect: Tmongo_reconnect;
+  mongo_cmd_ismaster: Tmongo_cmd_ismaster;
+  mongo_get_socket: Tmongo_get_socket;
+  mongo_get_host_count: Tmongo_get_host_count;
+  mongo_get_host: Tmongo_get_host;
+  mongo_insert: Tmongo_insert;
+  mongo_insert_batch: Tmongo_insert_batch;
+  mongo_update: Tmongo_update;
+  mongo_remove: Tmongo_remove;
+  mongo_find_one: Tmongo_find_one;
+  bson_create: Tbson_create;
+  bson_dispose: Tbson_dispose;
+  bson_copy: Tbson_copy;
+  mongo_cursor_create: Tmongo_cursor_create;
+  mongo_cursor_dispose: Tmongo_cursor_dispose;
+  mongo_cursor_destroy: Tmongo_cursor_destroy;
+  mongo_find: Tmongo_find;
+  mongo_cursor_next: Tmongo_cursor_next;
+  mongo_cursor_bson: Tmongo_cursor_bson;
+  mongo_cmd_drop_collection: Tmongo_cmd_drop_collection;
+  mongo_cmd_drop_db: Tmongo_cmd_drop_db;
+  mongo_count: Tmongo_count;
+  mongo_create_index: Tmongo_create_index;
+  mongo_cmd_add_user: Tmongo_cmd_add_user;
+  mongo_cmd_authenticate: Tmongo_cmd_authenticate;
+  mongo_run_command: Tmongo_run_command;
+  mongo_cmd_get_last_error: Tmongo_cmd_get_last_error;
+  mongo_cmd_get_prev_error: Tmongo_cmd_get_prev_error;
+  mongo_get_server_err: Tmongo_get_server_err;
+  mongo_get_server_err_string: Tmongo_get_server_err_string;
 
   procedure parseHost(host : string; var hosturl : string; var port : Integer);
   var i : Integer;
@@ -678,6 +711,40 @@ implementation
     Result := findOne(ns, query, TBson.Create(nil));
   end;
 
+function TMongo.CollectionExists(aDatabaseName, aCollectionName: string): boolean;
+var
+  collections: TStringArray;
+  i: integer;
+begin
+  Result := False;
+  collections := self.getDatabaseCollections(aDatabaseName);
+  for i := 0 to Length(collections) - 1 do
+  begin
+    if collections[i] = aDatabaseName + '.' + aCollectionName then
+    begin
+      Result := True;
+      Break;
+    end;
+  end;
+end;
+
+function TMongo.DatabaseExists(aDatabaseName: string): boolean;
+var
+  databases: TStringArray;
+  i: integer;
+begin
+  Result := False;
+  databases := self.getDatabases;
+  for i := 0 to Length(databases) - 1 do
+  begin
+    if databases[i] = aDatabaseName then
+    begin
+      Result := True;
+      Break;
+    end;
+  end;
+end;
+
   constructor TMongoCursor.Create();
   begin
     handle := nil;
@@ -914,7 +981,83 @@ implementation
     Result := string(mongo_get_server_err_string(handle));
   end;
 
-initialization
-  mongo_env_sock_init();
-end.
+procedure LoadMongoLibrary;
+begin
+  mongoLibraryHandle := 0;
 
+  if FileExists('mongoc.dll') then
+  begin
+    mongoLibraryHandle := LoadLibrary('mongoc.dll');
+
+    if mongoLibraryHandle > 0 then
+    begin
+      @mongo_env_sock_init := GetProcAddress(mongoLibraryHandle, 'mongo_env_sock_init');
+      @mongo_create := GetProcAddress(mongoLibraryHandle, 'mongo_create');
+      @mongo_dispose := GetProcAddress(mongoLibraryHandle, 'mongo_dispose');
+      @mongo_client := GetProcAddress(mongoLibraryHandle, 'mongo_client');
+      @mongo_destroy := GetProcAddress(mongoLibraryHandle, 'mongo_destroy');
+      @mongo_replica_set_init := GetProcAddress(mongoLibraryHandle, 'mongo_replica_set_init');
+      @mongo_replica_set_add_seed := GetProcAddress(mongoLibraryHandle, 'mongo_replica_set_add_seed');
+      @mongo_replica_set_client := GetProcAddress(mongoLibraryHandle, 'mongo_replica_set_client');
+      @mongo_is_connected := GetProcAddress(mongoLibraryHandle, 'mongo_is_connected');
+      @mongo_get_err := GetProcAddress(mongoLibraryHandle, 'mongo_get_err');
+      @mongo_set_op_timeout := GetProcAddress(mongoLibraryHandle, 'mongo_set_op_timeout');
+      @mongo_get_op_timeout := GetProcAddress(mongoLibraryHandle, 'mongo_get_op_timeout');
+      @mongo_get_primary := GetProcAddress(mongoLibraryHandle, 'mongo_get_primary');
+      @mongo_check_connection := GetProcAddress(mongoLibraryHandle, 'mongo_check_connection');
+      @mongo_disconnect := GetProcAddress(mongoLibraryHandle, 'mongo_disconnect');
+      @mongo_reconnect := GetProcAddress(mongoLibraryHandle, 'mongo_reconnect');
+      @mongo_cmd_ismaster := GetProcAddress(mongoLibraryHandle, 'mongo_cmd_ismaster');
+      @mongo_get_socket := GetProcAddress(mongoLibraryHandle, 'mongo_get_socket');
+      @mongo_get_host_count := GetProcAddress(mongoLibraryHandle, 'mongo_get_host_count');
+      @mongo_get_host := GetProcAddress(mongoLibraryHandle, 'mongo_get_host');
+      @mongo_insert := GetProcAddress(mongoLibraryHandle, 'mongo_insert');
+      @mongo_insert_batch := GetProcAddress(mongoLibraryHandle, 'mongo_insert_batch');
+      @mongo_update := GetProcAddress(mongoLibraryHandle, 'mongo_update');
+      @mongo_remove := GetProcAddress(mongoLibraryHandle, 'mongo_remove');
+      @mongo_find_one := GetProcAddress(mongoLibraryHandle, 'mongo_find_one');
+      @bson_create := GetProcAddress(mongoLibraryHandle, 'bson_create');
+      @bson_dispose := GetProcAddress(mongoLibraryHandle, 'bson_dispose');
+      @bson_copy := GetProcAddress(mongoLibraryHandle, 'bson_copy');
+      @mongo_cursor_create := GetProcAddress(mongoLibraryHandle, 'mongo_cursor_create');
+      @mongo_cursor_dispose := GetProcAddress(mongoLibraryHandle, 'mongo_cursor_dispose');
+      @mongo_cursor_destroy := GetProcAddress(mongoLibraryHandle, 'mongo_cursor_destroy');
+      @mongo_find := GetProcAddress(mongoLibraryHandle, 'mongo_find');
+      @mongo_cursor_next := GetProcAddress(mongoLibraryHandle, 'mongo_cursor_next');
+      @mongo_cursor_bson := GetProcAddress(mongoLibraryHandle, 'mongo_cursor_bson');
+      @mongo_cmd_drop_collection := GetProcAddress(mongoLibraryHandle, 'mongo_cmd_drop_collection');
+      @mongo_cmd_drop_db := GetProcAddress(mongoLibraryHandle, 'mongo_cmd_drop_db');
+      @mongo_count := GetProcAddress(mongoLibraryHandle, 'mongo_count');
+      @mongo_create_index := GetProcAddress(mongoLibraryHandle, 'mongo_create_index');
+      @mongo_cmd_add_user := GetProcAddress(mongoLibraryHandle, 'mongo_cmd_add_user');
+      @mongo_cmd_authenticate := GetProcAddress(mongoLibraryHandle, 'mongo_cmd_authenticate');
+      @mongo_run_command := GetProcAddress(mongoLibraryHandle, 'mongo_run_command');
+      @mongo_cmd_get_last_error := GetProcAddress(mongoLibraryHandle, 'mongo_cmd_get_last_error');
+      @mongo_cmd_get_prev_error := GetProcAddress(mongoLibraryHandle, 'mongo_cmd_get_prev_error');
+      @mongo_get_server_err := GetProcAddress(mongoLibraryHandle, 'mongo_get_server_err');
+      @mongo_get_server_err_string := GetProcAddress(mongoLibraryHandle, 'mongo_get_server_err_string');
+
+      mongo_env_sock_init;
+    end;
+  end;
+end;
+
+procedure UnloadMongoLibrary;
+begin
+  if mongoLibraryHandle > 0 then
+  begin
+    FreeLibrary(mongoLibraryHandle);
+  end;
+end;
+
+function MongoLibraryLoaded: boolean;
+begin
+  Result := mongoLibraryHandle > 0;
+end;
+
+initialization
+  LoadMongoLibrary;
+
+finalization
+  UnloadMongoLibrary;
+end.

@@ -183,49 +183,75 @@ interface
 
 implementation
   uses
+    Windows,
     SysUtils;
 
-  function gridfs_create() : Pointer; cdecl; external 'mongoc.dll';
-  procedure gridfs_dispose(g : Pointer); cdecl; external 'mongoc.dll';
-  function gridfs_init(c : Pointer; db : PAnsiChar; prefix : PAnsiChar; g : Pointer) : Integer;
-    cdecl; external 'mongoc.dll';
-  procedure gridfs_destroy(g : Pointer); cdecl; external 'mongoc.dll';
-  function gridfs_store_file(g : Pointer; filename : PAnsiChar; remoteName : PAnsiChar; contentType : PAnsiChar) : Integer;
-    cdecl; external 'mongoc.dll';
-  procedure gridfs_remove_filename(g : Pointer; remoteName : PAnsiChar); cdecl; external 'mongoc.dll';
-  function gridfs_store_buffer(g : Pointer; p : Pointer; size : Int64; remoteName : PAnsiChar; contentType : PAnsiChar) : Integer;
-    cdecl; external 'mongoc.dll';
-  function gridfile_create() : Pointer; cdecl; external 'mongoc.dll';
-  procedure gridfile_dispose(gf : Pointer); cdecl; external 'mongoc.dll';
-  procedure gridfile_writer_init(gf : Pointer; gfs : Pointer; remoteName : PAnsiChar; contentType : PAnsiChar);
-    cdecl; external 'mongoc.dll';
-  procedure gridfile_write_buffer(gf : Pointer; data : Pointer; length : Int64);
-    cdecl; external 'mongoc.dll';
-  function gridfile_writer_done(gf : Pointer) : Integer; cdecl; external 'mongoc.dll';
-  function gridfs_find_query(g : Pointer; query : Pointer; gf : Pointer) : Integer;
-    cdecl; external 'mongoc.dll';
-  procedure gridfile_destroy(gf : Pointer); cdecl; external 'mongoc.dll';
-  function gridfile_get_filename(gf : Pointer) : PAnsiChar; cdecl; external 'mongoc.dll';
-  function gridfile_get_chunksize(gf : Pointer) : Integer; cdecl; external 'mongoc.dll';
-  function gridfile_get_contentlength(gf : Pointer) : Int64; cdecl; external 'mongoc.dll';
-  function gridfile_get_contenttype(gf : Pointer) : PAnsiChar; cdecl; external 'mongoc.dll';
-  function gridfile_get_uploaddate(gf : Pointer) : Int64; cdecl; external 'mongoc.dll';
-  function gridfile_get_md5(gf : Pointer) : PAnsiChar; cdecl; external 'mongoc.dll';
-  procedure gridfile_get_metadata(gf : Pointer; b : Pointer); cdecl; external 'mongoc.dll';
-  function bson_create() : Pointer; cdecl; external 'mongoc.dll';
-  procedure bson_dispose(b : Pointer); cdecl; external 'mongoc.dll';
-  function bson_size(b : Pointer) : Integer; cdecl; external 'mongoc.dll';
-  procedure bson_copy(dest : Pointer; src : Pointer); cdecl; external 'mongoc.dll';
-  function gridfile_get_numchunks(gf : Pointer) : Integer; cdecl; external 'mongoc.dll';
-  procedure gridfile_get_descriptor(gf : Pointer; b : Pointer); cdecl; external 'mongoc.dll';
-  procedure gridfile_get_chunk(gf : Pointer; i : Integer; b : Pointer); cdecl; external 'mongoc.dll';
-  function gridfile_get_chunks(gf : Pointer; i : Integer; count : Integer) : Pointer;
-    cdecl; external 'mongoc.dll';
-  function gridfile_read(gf : Pointer; size : Int64; buf : Pointer) : Int64;
-    cdecl; external 'mongoc.dll';
-  function gridfile_seek(gf : Pointer; offset : Int64) : Int64;
-    cdecl; external 'mongoc.dll';
+type
+  Tgridfs_create = function: Pointer; cdecl;
+  Tgridfs_dispose = procedure(g : Pointer); cdecl;
+  Tgridfs_init = function(c : Pointer; db : PAnsiChar; prefix : PAnsiChar; g : Pointer) : Integer; cdecl;
+  Tgridfs_destroy = procedure(g : Pointer); cdecl;
+  Tgridfs_store_file = function(g : Pointer; filename : PAnsiChar; remoteName : PAnsiChar; contentType : PAnsiChar) : Integer; cdecl;
+  Tgridfs_remove_filename = procedure(g : Pointer; remoteName : PAnsiChar); cdecl;
+  Tgridfs_store_buffer = function(g : Pointer; p : Pointer; size : Int64; remoteName : PAnsiChar; contentType : PAnsiChar) : Integer; cdecl;
+  Tgridfile_create = function: Pointer; cdecl;
+  Tgridfile_dispose = procedure(gf : Pointer); cdecl;
+  Tgridfile_writer_init = procedure(gf : Pointer; gfs : Pointer; remoteName : PAnsiChar; contentType : PAnsiChar); cdecl;
+  Tgridfile_write_buffer = procedure(gf : Pointer; data : Pointer; length : Int64); cdecl;
+  Tgridfile_writer_done = function(gf : Pointer) : Integer; cdecl;
+  Tgridfs_find_query = function(g : Pointer; query : Pointer; gf : Pointer) : Integer; cdecl;
+  Tgridfile_destroy = procedure(gf : Pointer); cdecl;
+  Tgridfile_get_filename = function(gf : Pointer) : PAnsiChar; cdecl;
+  Tgridfile_get_chunksize = function(gf : Pointer) : Integer; cdecl;
+  Tgridfile_get_contentlength = function(gf : Pointer) : Int64; cdecl;
+  Tgridfile_get_contenttype = function(gf : Pointer) : PAnsiChar; cdecl;
+  Tgridfile_get_uploaddate = function(gf : Pointer) : Int64; cdecl;
+  Tgridfile_get_md5 = function(gf : Pointer) : PAnsiChar; cdecl;
+  Tgridfile_get_metadata = procedure(gf : Pointer; b : Pointer); cdecl;
+  Tbson_create = function: Pointer; cdecl;
+  Tbson_dispose = procedure(b : Pointer); cdecl;
+  Tbson_size = function(b : Pointer) : Integer; cdecl;
+  Tbson_copy = procedure(dest : Pointer; src : Pointer); cdecl;
+  Tgridfile_get_numchunks = function(gf : Pointer) : Integer; cdecl;
+  Tgridfile_get_descriptor = procedure(gf : Pointer; b : Pointer); cdecl;
+  Tgridfile_get_chunk = procedure(gf : Pointer; i : Integer; b : Pointer); cdecl;
+  Tgridfile_get_chunks = function(gf : Pointer; i : Integer; count : Integer) : Pointer; cdecl;
+  Tgridfile_read = function(gf : Pointer; size : Int64; buf : Pointer) : Int64; cdecl;
+  Tgridfile_seek = function(gf : Pointer; offset : Int64) : Int64; cdecl;
 
+var
+  mongoLibraryHandle: THandle;
+  gridfs_create: Tgridfs_create;
+  gridfs_dispose: Tgridfs_dispose;
+  gridfs_init: Tgridfs_init;
+  gridfs_destroy: Tgridfs_destroy;
+  gridfs_store_file: Tgridfs_store_file;
+  gridfs_remove_filename: Tgridfs_remove_filename;
+  gridfs_store_buffer: Tgridfs_store_buffer;
+  gridfile_create: Tgridfile_create;
+  gridfile_dispose: Tgridfile_dispose;
+  gridfile_writer_init: Tgridfile_writer_init;
+  gridfile_write_buffer: Tgridfile_write_buffer;
+  gridfile_writer_done: Tgridfile_writer_done;
+  gridfs_find_query: Tgridfs_find_query;
+  gridfile_destroy: Tgridfile_destroy;
+  gridfile_get_filename: Tgridfile_get_filename;
+  gridfile_get_chunksize: Tgridfile_get_chunksize;
+  gridfile_get_contentlength: Tgridfile_get_contentlength;
+  gridfile_get_contenttype: Tgridfile_get_contenttype;
+  gridfile_get_uploaddate: Tgridfile_get_uploaddate;
+  gridfile_get_md5: Tgridfile_get_md5;
+  gridfile_get_metadata: Tgridfile_get_metadata;
+  bson_create: Tbson_create;
+  bson_dispose: Tbson_dispose;
+  bson_size: Tbson_size;
+  bson_copy: Tbson_copy;
+  gridfile_get_numchunks: Tgridfile_get_numchunks;
+  gridfile_get_descriptor: Tgridfile_get_descriptor;
+  gridfile_get_chunk: Tgridfile_get_chunk;
+  gridfile_get_chunks: Tgridfile_get_chunks;
+  gridfile_read: Tgridfile_read;
+  gridfile_seek: Tgridfile_seek;
   
   constructor TGridFS.Create(mongo: TMongo; db: string; prefix : string);
   begin
@@ -463,5 +489,62 @@ implementation
     Result := gridfile_seek(handle, offset);
   end;
 
+procedure LoadMongoLibrary;
+begin
+  mongoLibraryHandle := 0;
 
+  if FileExists('mongoc.dll') then
+  begin
+    mongoLibraryHandle := LoadLibrary('mongoc.dll');
+
+    if mongoLibraryHandle > 0 then
+    begin
+      @gridfs_create := GetProcAddress(mongoLibraryHandle, 'gridfs_create');
+      @gridfs_dispose := GetProcAddress(mongoLibraryHandle, 'gridfs_dispose');
+      @gridfs_init := GetProcAddress(mongoLibraryHandle, 'gridfs_init');
+      @gridfs_destroy := GetProcAddress(mongoLibraryHandle, 'gridfs_destroy');
+      @gridfs_store_file := GetProcAddress(mongoLibraryHandle, 'gridfs_store_file');
+      @gridfs_remove_filename := GetProcAddress(mongoLibraryHandle, 'gridfs_remove_filename');
+      @gridfs_store_buffer := GetProcAddress(mongoLibraryHandle, 'gridfs_store_buffer');
+      @gridfile_create := GetProcAddress(mongoLibraryHandle, 'gridfile_create');
+      @gridfile_dispose := GetProcAddress(mongoLibraryHandle, 'gridfile_dispose');
+      @gridfile_writer_init := GetProcAddress(mongoLibraryHandle, 'gridfile_writer_init');
+      @gridfile_write_buffer := GetProcAddress(mongoLibraryHandle, 'gridfile_write_buffer');
+      @gridfile_writer_done := GetProcAddress(mongoLibraryHandle, 'gridfile_writer_done');
+      @gridfs_find_query := GetProcAddress(mongoLibraryHandle, 'gridfs_find_query');
+      @gridfile_destroy := GetProcAddress(mongoLibraryHandle, 'gridfile_destroy');
+      @gridfile_get_filename := GetProcAddress(mongoLibraryHandle, 'gridfile_get_filename');
+      @gridfile_get_chunksize := GetProcAddress(mongoLibraryHandle, 'gridfile_get_chunksize');
+      @gridfile_get_contentlength := GetProcAddress(mongoLibraryHandle, 'gridfile_get_contentlength');
+      @gridfile_get_contenttype := GetProcAddress(mongoLibraryHandle, 'gridfile_get_contenttype');
+      @gridfile_get_uploaddate := GetProcAddress(mongoLibraryHandle, 'gridfile_get_uploaddate');
+      @gridfile_get_md5 := GetProcAddress(mongoLibraryHandle, 'gridfile_get_md5');
+      @gridfile_get_metadata := GetProcAddress(mongoLibraryHandle, 'gridfile_get_metadata');
+      @bson_create := GetProcAddress(mongoLibraryHandle, 'bson_create');
+      @bson_dispose := GetProcAddress(mongoLibraryHandle, 'bson_dispose');
+      @bson_size := GetProcAddress(mongoLibraryHandle, 'bson_size');
+      @bson_copy := GetProcAddress(mongoLibraryHandle, 'bson_copy');
+      @gridfile_get_numchunks := GetProcAddress(mongoLibraryHandle, 'gridfile_get_numchunks');
+      @gridfile_get_descriptor := GetProcAddress(mongoLibraryHandle, 'gridfile_get_descriptor');
+      @gridfile_get_chunk := GetProcAddress(mongoLibraryHandle, 'gridfile_get_chunk');
+      @gridfile_get_chunks := GetProcAddress(mongoLibraryHandle, 'gridfile_get_chunks');
+      @gridfile_read := GetProcAddress(mongoLibraryHandle, 'gridfile_read');
+      @gridfile_seek := GetProcAddress(mongoLibraryHandle, 'gridfile_seek');
+    end;
+  end;
+end;
+
+procedure UnloadMongoLibrary;
+begin
+  if mongoLibraryHandle > 0 then
+  begin
+    FreeLibrary(mongoLibraryHandle);
+  end;
+end;
+
+initialization
+  LoadMongoLibrary;
+
+finalization
+  UnloadMongoLibrary;
 end.
